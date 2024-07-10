@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
-smoltcp = { path = "../smoltcp" }
+smoltcp = { path = "../smoltcp", features = ["socket-tcp-cubic"] }

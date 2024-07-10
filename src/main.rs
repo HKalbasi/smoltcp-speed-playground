@@ -1,18 +1,15 @@
 #![allow(clippy::collapsible_if)]
 
 use std::cmp;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::os::fd::AsRawFd;
 
 use smoltcp::iface::{Config, Interface, SocketSet};
 use smoltcp::phy::{wait as phy_wait, Device, Medium};
-use smoltcp::socket::tcp;
+use smoltcp::socket::tcp::{self, CongestionControl};
 use smoltcp::time::{Duration, Instant};
 use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr};
 
 const AMOUNT: usize = 1_000_000_000;
-
-static CLIENT_DONE: AtomicBool = AtomicBool::new(false);
 
 fn main() {
     let mut device = smoltcp::phy::RawSocket::new("left_h-eth0", Medium::Ethernet).unwrap();
@@ -22,11 +19,13 @@ fn main() {
 
     let tcp1_rx_buffer = tcp::SocketBuffer::new(vec![b'A'; BUF_SIZE]);
     let tcp1_tx_buffer = tcp::SocketBuffer::new(vec![b'A'; BUF_SIZE]);
-    let tcp1_socket = tcp::Socket::new(tcp1_rx_buffer, tcp1_tx_buffer);
+    let mut tcp1_socket = tcp::Socket::new(tcp1_rx_buffer, tcp1_tx_buffer);
+
+    tcp1_socket.set_congestion_control(CongestionControl::Cubic);
 
     let mut config = match device.capabilities().medium {
         Medium::Ethernet => {
-            Config::new(EthernetAddress([0xd0,0x57,0x7b,0x11,0xc9,0x05,]).into())
+            Config::new(EthernetAddress([0xd0, 0x57, 0x7b, 0x11, 0xc9, 0x05]).into())
         }
         Medium::Ip => Config::new(smoltcp::wire::HardwareAddress::Ip),
         Medium::Ieee802154 => todo!(),
@@ -45,7 +44,7 @@ fn main() {
     let default_timeout = Some(Duration::from_millis(1000));
 
     let mut processed = 0;
-    while !CLIENT_DONE.load(Ordering::SeqCst) {
+    while processed < AMOUNT {
         let timestamp = Instant::now();
         iface.poll(timestamp, &mut device, &mut sockets);
 
@@ -64,11 +63,10 @@ fn main() {
                     })
                     .unwrap();
                 processed += length;
-                dbg!(processed);
             }
         }
 
-        match dbg!(iface.poll_at(timestamp, &sockets)) {
+        match iface.poll_at(timestamp, &sockets) {
             Some(poll_at) if timestamp < poll_at => {
                 phy_wait(fd, Some(poll_at - timestamp)).expect("wait error");
             }

@@ -55,6 +55,10 @@ def run():
     left_host = net[LEFT_HOST_NAME]
     right_host = net[RIGHT_HOST_NAME]
 
+    for host in [left_host, right_host]:
+        for name in ["tx", "rx"]:
+            disable_offload(host, name, 0)
+
     left_host.cmd("tcpdump -w left.pcap &")
     right_host.cmd("tcpdump -w right.pcap &")
 
