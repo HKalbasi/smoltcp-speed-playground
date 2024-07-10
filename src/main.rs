@@ -15,7 +15,7 @@ fn main() {
     let mut device = smoltcp::phy::RawSocket::new("left_h-eth0", Medium::Ethernet).unwrap();
     let fd = device.as_raw_fd();
 
-    const BUF_SIZE: usize = 65535;
+    const BUF_SIZE: usize = 65535000;
 
     let tcp1_rx_buffer = tcp::SocketBuffer::new(vec![b'A'; BUF_SIZE]);
     let tcp1_tx_buffer = tcp::SocketBuffer::new(vec![b'A'; BUF_SIZE]);
